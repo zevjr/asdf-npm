@@ -1,0 +1,82 @@
+name: asdf-npm CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  plugin-test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        # Compatibility matrix from https://pnpm.io/installation#compatibility
+        version:
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+        node:
+          - 10
+          - 12
+          - 14
+          - 16
+          - 18
+          - 20
+        exclude:
+          # npm >= v8 does not support node <= v14
+          - node: 10
+            version: 8
+          - node: 12
+            version: 8
+          - node: 14
+            version: 8
+          # npm >= v7 does not support node <= v12
+          - node: 10
+            version: 7
+          - node: 12
+            version: 7
+          # npm >= v6 does not support node <= v10
+          - node: 10
+            version: 6
+    name: plugin-test (pnpm v${{ matrix.version }}, Node.js v${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test npm
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: npm --version
+          version: latest:${{ matrix.version }}
+      - name: Test npx
+        if: matrix.version < 7
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: npx --version
+          version: latest:${{ matrix.version }}
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Run ShellCheck
+        run: shellcheck bin/*
+  shfmt:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: reviewdog/action-shfmt@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          shfmt_flags: -d -i 2 -ci
